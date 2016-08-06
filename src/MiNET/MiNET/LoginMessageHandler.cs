@@ -150,16 +150,32 @@ namespace MiNET
 					foreach (dynamic o in json.chain)
 					{
 						IDictionary<string, dynamic> headers = JWT.Headers(o.ToString());
-
+#if __MonoCS__
+						dynamic jsonPayload = JObject.Parse(JWT.Payload(o.ToString()));
+#endif
 						if (Log.IsDebugEnabled)
 						{
 							Log.Debug("Raw chain element:\n" + o.ToString());
 							Log.Debug($"JWT Header: {string.Join(";", headers)}");
-
+#if !__MonoCS__
 							dynamic jsonPayload = JObject.Parse(JWT.Payload(o.ToString()));
+#endif
 							Log.Debug($"JWT Payload:\n{jsonPayload}");
 						}
+#if __MonoCS__
+						_playerInfo.Username = jsonPayload["extraData"]["displayName"];
+						_session.Username = _playerInfo.Username;
+						string identity = jsonPayload["extraData"]["identity"];
 
+						_playerInfo.ClientUuid = new UUID(new Guid(identity));
+
+						_session.CryptoContext = new CryptoContext
+						{
+							UseEncryption = false,
+						};
+					}
+				}
+#else
 						// x5u cert (string): MHYwEAYHKoZIzj0CAQYFK4EEACIDYgAE8ELkixyLcwlZryUQcu1TvPOmI2B7vX83ndnWRUaXm74wFfa5f/lwQNTfrLVHa2PmenpGI6JhIMUJaWZrjmMj90NoKNFSNBuKdm8rYiXsfaz3K36x/1U26HpG0ZxK/V1V
 						if (headers.ContainsKey("x5u"))
 						{
@@ -282,7 +298,7 @@ namespace MiNET
 						}
 					}
 				}
-
+#endif
 				{
 					if (Log.IsDebugEnabled) Log.Debug("Input SKIN string: " + skinData);
 

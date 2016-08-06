@@ -258,7 +258,11 @@ namespace MiNET
 				byte[] payload = wrapper.payload;
 				if (playerSession.CryptoContext != null && playerSession.CryptoContext.UseEncryption)
 				{
+#if __MonoCS__
+					throw new Exception("Protocol encryption is not supported on Mono!");
+#else
 					payload = CryptoUtils.Decrypt(payload, playerSession.CryptoContext);
+#endif
 				}
 
 				//if (Log.IsDebugEnabled)

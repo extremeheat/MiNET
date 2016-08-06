@@ -13,6 +13,7 @@ using MiNET.Net;
 
 namespace MiNET.Utils
 {
+#if !__MonoCS__
 	public static class CryptoUtils
 	{
 		private static readonly ILog Log = LogManager.GetLogger(typeof (CryptoUtils));
@@ -290,4 +291,5 @@ namespace MiNET.Utils
 		}
 
 	}
+#endif
 }

@@ -141,7 +141,11 @@ namespace MiNET.Net
 
 					if (!message.ForceClear && session.CryptoContext.UseEncryption)
 					{
+#if __MonoCS__
+						throw new Exception("Protocol encryption is not supported on Mono!");
+#else
 						wrapper.payload = CryptoUtils.Encrypt(encodedMessage, cryptoContext);
+#endif
 					}
 					else
 					{

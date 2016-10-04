@@ -153,5 +153,14 @@ namespace MiNET.Blocks
 		{
 			return new BoundingBox(Coordinates, Coordinates + 1);
 		}
+
+        public static bool IsPassable(Block block)
+        {
+            if (!block.IsSolid)
+            {
+                return false;
+            }
+            return true;
+        }
 	}
 }

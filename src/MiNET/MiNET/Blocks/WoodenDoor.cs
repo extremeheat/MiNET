@@ -55,5 +55,10 @@ namespace MiNET.Blocks
 
 			return true;
 		}
+
+        public bool IsOpen()
+        {
+            return (Metadata & 0x4) == 1;
+        }
 	}
 }

@@ -25,7 +25,7 @@ using MiNET.Worlds;
 
 namespace MiNET
 {
-	public class Player : Entity, IMcpeMessageHandler
+	public class Player : LivingEntityBase, IMcpeMessageHandler
 	{
 		private static readonly ILog Log = LogManager.GetLogger(typeof (Player));
 
@@ -34,9 +34,9 @@ namespace MiNET
 		public INetworkHandler NetworkHandler { get; set; }
 
 		private Dictionary<Tuple<int, int>, McpeBatch> _chunksUsed = new Dictionary<Tuple<int, int>, McpeBatch>();
-		private ChunkCoordinates _currentChunkPosition;
+        private ChunkCoordinates _currentChunkPosition;
 
-		private Inventory _openInventory;
+        private Inventory _openInventory;
 		public PlayerInventory Inventory { get; private set; }
 
 		public PlayerLocation SpawnPosition { get; set; }
@@ -64,7 +64,7 @@ namespace MiNET
 
 		public HungerManager HungerManager { get; set; }
 
-		public bool IsOnGround { get; set; }
+        public bool IsOnGround { get; set; }
 		public bool IsFalling { get; set; }
 		public bool IsFlyingHorizontally { get; set; }
 

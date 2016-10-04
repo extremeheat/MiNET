@@ -225,113 +225,113 @@ namespace MiNET.Entities.Projectiles
 			if (BroadcastMovement) BroadcastMoveAndMotion();
 		}
 
-		private Entity CheckEntityCollide(Vector3 position, Vector3 direction)
-		{
-			Ray2 ray = new Ray2
-			{
-				x = position,
-				d = Vector3.Normalize(direction)
-			};
+        private Entity CheckEntityCollide(Vector3 position, Vector3 direction)
+        {
+            Ray2 ray = new Ray2
+            {
+                x = position,
+                d = Vector3.Normalize(direction)
+            };
 
-			var players = Level.GetSpawnedPlayers().OrderBy(player => Vector3.Distance(position, player.KnownPosition.ToVector3()));
-			foreach (var entity in players)
-			{
-				if (entity == Shooter) continue;
+            var players = Level.GetSpawnedPlayers().OrderBy(player => Vector3.Distance(position, player.KnownPosition.ToVector3()));
+            foreach (var entity in players)
+            {
+                if (entity == Shooter) continue;
 
-				if (Intersect(entity.GetBoundingBox(), ray))
-				{
-					if (ray.tNear > direction.Length()) break;
+                if (Intersect(entity.GetBoundingBox(), ray))
+                {
+                    if (ray.tNear > direction.Length()) break;
 
-					Vector3 p = ray.x + new Vector3((float) ray.tNear)*ray.d;
-					KnownPosition = new PlayerLocation((float) p.X, (float) p.Y, (float) p.Z);
-					return entity;
-				}
-			}
+                    Vector3 p = ray.x + new Vector3((float)ray.tNear) * ray.d;
+                    KnownPosition = new PlayerLocation((float)p.X, (float)p.Y, (float)p.Z);
+                    return entity;
+                }
+            }
 
-			var entities = Level.Entities.Values.OrderBy(entity => Vector3.Distance(position, entity.KnownPosition.ToVector3()));
-			foreach (Entity entity in entities)
-			{
-				if (entity == Shooter) continue;
-				if (entity == this) continue;
-				if (entity is Projectile) continue;
+            var entities = Level.Entities.Values.OrderBy(entity => Vector3.Distance(position, entity.KnownPosition.ToVector3()));
+            foreach (Entity entity in entities)
+            {
+                if (entity == Shooter) continue;
+                if (entity == this) continue;
+                if (entity is Projectile) continue;
 
-				if (Intersect(entity.GetBoundingBox(), ray))
-				{
-					if (ray.tNear > direction.Length()) break;
+                if (Intersect(entity.GetBoundingBox(), ray))
+                {
+                    if (ray.tNear > direction.Length()) break;
 
-					Vector3 p = ray.x + new Vector3((float) ray.tNear)*ray.d;
-					KnownPosition = new PlayerLocation(p.X, p.Y, p.Z);
-					return entity;
-				}
-			}
+                    Vector3 p = ray.x + new Vector3((float)ray.tNear) * ray.d;
+                    KnownPosition = new PlayerLocation(p.X, p.Y, p.Z);
+                    return entity;
+                }
+            }
 
-			return null;
-		}
+            return null;
+        }
 
-		private bool CheckBlockCollide(PlayerLocation location)
-		{
-			var bbox = GetBoundingBox();
-			var pos = location.ToVector3();
+        private bool CheckBlockCollide(PlayerLocation location)
+        {
+            var bbox = GetBoundingBox();
+            var pos = location.ToVector3();
 
-			var coords = new BlockCoordinates(
-				(int) Math.Floor(KnownPosition.X),
-				(int) Math.Floor((bbox.Max.Y + bbox.Min.Y)/2.0),
-				(int) Math.Floor(KnownPosition.Z));
+            var coords = new BlockCoordinates(
+                (int)Math.Floor(KnownPosition.X),
+                (int)Math.Floor((bbox.Max.Y + bbox.Min.Y) / 2.0),
+                (int)Math.Floor(KnownPosition.Z));
 
-			Dictionary<double, Block> blocks = new Dictionary<double, Block>();
+            Dictionary<double, Block> blocks = new Dictionary<double, Block>();
 
-			for (int x = -1; x < 2; x++)
-			{
-				for (int z = -1; z < 2; z++)
-				{
-					for (int y = -1; y < 2; y++)
-					{
-						Block block = Level.GetBlock(coords.X + x, coords.Y + y, coords.Z + z);
-						if (block is Air) continue;
+            for (int x = -1; x < 2; x++)
+            {
+                for (int z = -1; z < 2; z++)
+                {
+                    for (int y = -1; y < 2; y++)
+                    {
+                        Block block = Level.GetBlock(coords.X + x, coords.Y + y, coords.Z + z);
+                        if (block is Air) continue;
 
-						BoundingBox blockbox = block.GetBoundingBox() + 0.3f;
-						if (blockbox.Intersects(GetBoundingBox()))
-						{
-							//if (!blockbox.Contains(KnownPosition.ToVector3())) continue;
+                        BoundingBox blockbox = block.GetBoundingBox() + 0.3f;
+                        if (blockbox.Intersects(GetBoundingBox()))
+                        {
+                            //if (!blockbox.Contains(KnownPosition.ToVector3())) continue;
 
-							if (block is FlowingLava || block is StationaryLava)
-							{
-								HealthManager.Ignite(1200);
-								continue;
-							}
+                            if (block is FlowingLava || block is StationaryLava)
+                            {
+                                HealthManager.Ignite(1200);
+                                continue;
+                            }
 
-							if (!block.IsSolid) continue;
+                            if (!block.IsSolid) continue;
 
-							blockbox = block.GetBoundingBox();
+                            blockbox = block.GetBoundingBox();
 
-							var midPoint = blockbox.Min + new Vector3(0.5f);
-							blocks.Add(Vector3.Distance((pos - Velocity), midPoint), block);
-						}
-					}
-				}
-			}
+                            var midPoint = blockbox.Min + new Vector3(0.5f);
+                            blocks.Add(Vector3.Distance((pos - Velocity), midPoint), block);
+                        }
+                    }
+                }
+            }
 
-			if (blocks.Count == 0) return false;
+            if (blocks.Count == 0) return false;
 
-			var firstBlock = blocks.OrderBy(pair => pair.Key).First().Value;
+            var firstBlock = blocks.OrderBy(pair => pair.Key).First().Value;
 
-			BoundingBox boundingBox = firstBlock.GetBoundingBox();
-			if (!SetIntersectLocation(boundingBox, KnownPosition))
-			{
-				// No real hit
-				return false;
-			}
+            BoundingBox boundingBox = firstBlock.GetBoundingBox();
+            if (!SetIntersectLocation(boundingBox, KnownPosition))
+            {
+                // No real hit
+                return false;
+            }
 
-			// Use to debug hits, makes visual impressions (can be used for paintball too)
-			var substBlock = new Stone {Coordinates = firstBlock.Coordinates};
-			Level.SetBlock(substBlock);
-			// End debug block
+            // Use to debug hits, makes visual impressions (can be used for paintball too)
+            var substBlock = new Stone { Coordinates = firstBlock.Coordinates };
+            Level.SetBlock(substBlock);
+            // End debug block
 
-			Velocity = Vector3.Zero;
-			return true;
-		}
+            Velocity = Vector3.Zero;
+            return true;
+        }
 
-		public bool SetIntersectLocation(BoundingBox bbox, PlayerLocation location)
+        public bool SetIntersectLocation(BoundingBox bbox, PlayerLocation location)
 		{
 			Ray ray = new Ray(location.ToVector3() - Velocity, Vector3.Normalize(Velocity));
 			double? distance = ray.Intersects(bbox);

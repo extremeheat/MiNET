@@ -44,7 +44,27 @@ namespace MiNET.Utils
 			                 Square(other.Z - Z));
 		}
 
-		private double Square(double num)
+        public double DistanceToSquared(PlayerLocation other)
+        {
+            return Square(other.X - X) + Square(other.Y - Y) + Square(other.Z - Z);
+        }
+
+        public double DistanceToSquared(float x, float y, float z)
+        {
+            return Square(x - X) + Square(y - Y) + Square(z - Z);
+        }
+
+        public double DistanceToSquaredToCenter(PlayerLocation other)
+        {
+            return Square(other.X + 0.5 - X) + Square(other.Y + 0.5 - Y) + Square(other.Z + 0.5 - Z);
+        }
+
+        public double DistanceToSquaredToCenter(Vector3 other)
+        {
+            return Square(other.X + 0.5 - X) + Square(other.Y + 0.5 - Y) + Square(other.Z + 0.5 - Z);
+        }
+
+        private double Square(double num)
 		{
 			return num*num;
 		}

@@ -3,7 +3,7 @@ using System.Numerics;
 
 namespace MiNET.Utils
 {
-	public struct BlockCoordinates : IEquatable<BlockCoordinates>
+	public struct BlockCoordinates// : IEquatable<BlockCoordinates>
 	{
 		public int X, Y, Z;
 
@@ -44,10 +44,15 @@ namespace MiNET.Utils
 			                 Square(other.Z - Z));
 		}
 
-		/// <summary>
-		/// Calculates the square of a num.
-		/// </summary>
-		private int Square(int num)
+        public double DistanceToSquared(BlockCoordinates other)
+        {
+            return Square(other.X - X) + Square(other.Y - Y) + Square(other.Z - Z);
+        }
+
+        /// <summary>
+        /// Calculates the square of a num.
+        /// </summary>
+        private int Square(int num)
 		{
 			return num*num;
 		}
@@ -78,7 +83,26 @@ namespace MiNET.Utils
 				);
 		}
 
-		public static bool operator !=(BlockCoordinates a, BlockCoordinates b)
+        public static BlockCoordinates[] GetBlocksBetween(BlockCoordinates point1, BlockCoordinates point2)
+        {
+            BlockCoordinates bc1 = new BlockCoordinates(Math.Min(point1.X, point2.X), Math.Min(point1.Y, point1.Y), Math.Min(point1.Z, point2.Z));
+            BlockCoordinates bc2 = new BlockCoordinates(Math.Max(point1.X, point2.X), Math.Max(point1.Y, point1.Y), Math.Max(point1.Z, point2.Z));
+
+            System.Collections.Generic.List<BlockCoordinates> list = new System.Collections.Generic.List<BlockCoordinates>();
+            for (int x = bc1.X; x <= bc2.X; x++)
+            {
+                for (int y = bc1.Y; y <= bc2.Y; y++)
+                {
+                    for (int z = bc1.Z; z <= bc2.Z; z++)
+                    {
+                        list.Add(new BlockCoordinates(x, y, z));
+                    }
+                }
+            }
+            return list.ToArray();
+        }
+
+        public static bool operator !=(BlockCoordinates a, BlockCoordinates b)
 		{
 			return !a.Equals(b);
 		}

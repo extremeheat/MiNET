@@ -65,6 +65,8 @@ namespace MiNET.Worlds
 
 		public Random Random { get; private set; }
 
+        public readonly Entities.AI.WorldEventListener AIEventListener;
+
 		public Level(string levelId, IWorldProvider worldProvider, GameMode gameMode = GameMode.Survival, Difficulty difficulty = Difficulty.Normal, int viewDistance = 11)
 		{
 			Random = new Random();
@@ -76,6 +78,7 @@ namespace MiNET.Worlds
 			Entities = new ConcurrentDictionary<long, Entity>();
 			BlockEntities = new List<BlockEntity>();
 			BlockWithTicks = new ConcurrentDictionary<BlockCoordinates, long>();
+            AIEventListener = new Entities.AI.WorldEventListener();
 			LevelId = levelId;
 			GameMode = gameMode;
 			Difficulty = difficulty;
@@ -746,6 +749,7 @@ namespace MiNET.Worlds
 			message.z = block.Coordinates.Z;
 			message.blockMetaAndPriority = (byte) (0xb << 4 | (block.Metadata & 0xf));
 			RelayBroadcast(message);
+            AIEventListener.OnBlockPlace(block.Coordinates);
 		}
 
 		public void SetAir(int x, int y, int z, bool broadcast = true)
@@ -938,7 +942,7 @@ namespace MiNET.Worlds
 			else
 			{
 				block.BreakBlock(this);
-
+                AIEventListener.OnBlockBreak(block.Coordinates);
 				if (blockEntity != null)
 				{
 					RemoveBlockEntity(blockCoordinates);
@@ -1017,8 +1021,374 @@ namespace MiNET.Worlds
 			return entity ?? Entities.Values.FirstOrDefault(e => e.EntityId == targetEntityId);
 		}
 
+        public Entity[] GetNearbyEntities(PlayerLocation loc, double distance)
+        {
+            SortedDictionary<double, Entity> list = new SortedDictionary<double, Entity>();
 
-		public ChunkColumn[] GetLoadedChunks()
+            foreach (var entity in Entities)
+            {
+                var cpos = entity.Value.KnownPosition;
+                if (loc.DistanceTo(cpos) <= distance)
+                {
+                    list.Add(loc.DistanceTo(cpos), entity.Value);
+                }
+            }
+            return list.Values.ToArray();
+        }
+
+        public Entity[] GetNearbyEntities(PlayerLocation loc, double distance, Type type)
+        {
+            SortedDictionary<double, Entity> list = new SortedDictionary<double, Entity>();
+
+            foreach (var entity in Entities)
+            {
+                if (!(entity.Value.GetType() == type))
+                    continue;
+                var cpos = entity.Value.KnownPosition;
+                if (loc.DistanceTo(cpos) <= distance)
+                {
+                    list.Add(loc.DistanceTo(cpos), entity.Value);
+                }
+            }
+            return list.Values.ToArray();
+        }
+
+
+        public Entity[] GetNearbyEntities(Vector3 loc, double distance)
+        {
+            return GetNearbyEntities(new PlayerLocation(loc), distance);
+        }
+
+        /*public Entity[] GetVisibleEntities(PlayerLocation loc, int rayLength, int rayWidth)
+        {
+            List<Entity> list = new List<Entity>();
+
+            foreach (var entity in Entities)
+            {
+                var cpos = entity.Value.KnownPosition;
+                for (var i = 0; i < rayLength; i++)
+                {
+                    var lookingDir = cpos.GetHeadDirection();
+                    float X = lookingDir.X * i;
+                    float Y = lookingDir.Y * i;
+                    float Z = lookingDir.Z * i;
+                    var cpos3 = new PlayerLocation(
+                        cpos.X + X,
+                        cpos.Y + Y,
+                        cpos.Z + Z
+                    );
+                    list.AddRange(GetNearbyEntities(cpos3, rayWidth));
+                }
+            }
+            return list.ToArray();
+        }*/
+
+        public Player[] GetPlayersInLoadedChunk(int x, int z)
+        {
+            List<Player> list = new List<Player>();
+            foreach (var player in Players)
+            {
+                var cpos = new ChunkCoordinates(player.Value.KnownPosition);
+                if (cpos.X == x && cpos.Z == z)
+                {
+                    list.Add(player.Value);
+                }
+            }
+            return list.ToArray();
+        }
+
+        public Entity[] GetEntitiesInLoadedChunk(int x, int z)
+        {
+            List<Entity> list = new List<Entity>();
+            foreach (var entity in Entities)
+            {
+                var cpos = new ChunkCoordinates(entity.Value.KnownPosition);
+                if (cpos.X == x && cpos.Z == z)
+                {
+                    list.Add(entity.Value);
+                }
+            }
+            return list.ToArray();
+        }
+#if false
+        public bool CollidesWithBlock(BoundingBox bb)
+        {
+            int i_minX = (int)Math.Floor(bb.Min.X)   - 1;
+            int i_maxX = (int)Math.Ceiling(bb.Max.X) + 1;
+            int i_minY = (int)Math.Floor(bb.Min.Y)   - 1;
+            int i_maxY = (int)Math.Ceiling(bb.Max.Y) + 1;
+            int i_minZ = (int)Math.Floor(bb.Min.Z)   - 1;
+            int i_maxZ = (int)Math.Ceiling(bb.Max.Z) + 1;
+            int f_minX = Math.Min(i_minX, i_maxX);
+            int f_maxX = Math.Max(i_minX, i_maxX);
+            int f_minY = Math.Min(i_minY, i_maxY);
+            int f_maxY = Math.Max(i_minY, i_maxY);
+            int f_minZ = Math.Min(i_minZ, i_maxZ);
+            int f_maxZ = Math.Max(i_minZ, i_maxZ);
+
+            for (int x = f_minX; x < f_maxX; ++x)
+            {
+                for (int y = f_minY; y < f_maxY; ++y)
+                {
+                    for (int z = f_minZ; z < f_maxZ; ++z)
+                    {
+                        var block = GetBlock(x, y, z);
+                        if (block.GetBoundingBox().Intersects(bb))
+                        {
+                            return true;
+                        }
+                    }
+                }
+            }
+
+            return false;
+        }
+
+        public Block[] GetCollidingBlocks(BoundingBox bb)
+        {
+            List<Block> matchedBlocks = new List<Block>();
+
+            int i_minX = (int)Math.Floor(bb.Min.X) - 1;
+            int i_maxX = (int)Math.Ceiling(bb.Max.X) + 1;
+            int i_minY = (int)Math.Floor(bb.Min.Y) - 1;
+            int i_maxY = (int)Math.Ceiling(bb.Max.Y) + 1;
+            int i_minZ = (int)Math.Floor(bb.Min.Z) - 1;
+            int i_maxZ = (int)Math.Ceiling(bb.Max.Z) + 1;
+            int f_minX = Math.Min(i_minX, i_maxX);
+            int f_maxX = Math.Max(i_minX, i_maxX);
+            int f_minY = Math.Min(i_minY, i_maxY);
+            int f_maxY = Math.Max(i_minY, i_maxY);
+            int f_minZ = Math.Min(i_minZ, i_maxZ);
+            int f_maxZ = Math.Max(i_minZ, i_maxZ);
+
+            for (int x = f_minX; x < f_maxX; ++x)
+            {
+                for (int y = f_minY; y < f_maxY; ++y)
+                {
+                    for (int z = f_minZ; z < f_maxZ; ++z)
+                    {
+                        var block = GetBlock(x, y, z);
+                        if (block.GetBoundingBox().Intersects(bb))
+                        {
+                            matchedBlocks.Add(block);
+                        }
+                    }
+                }
+            }
+
+            return matchedBlocks.ToArray();
+        }
+
+        // BEGIN NMS CODE
+        public RayTraceResult rayTraceBlocks(Vector3 origin, Vector3 direction, bool stopOnLiquid, bool ignoreBlockWithoutBoundingBox, bool returnLastUncollidableBlock)
+        {
+            int originX = (int)Math.Floor(direction.X);
+            int originY = (int)Math.Floor(direction.Y);
+            int originZ = (int)Math.Floor(direction.Z);
+            int directionX = (int)Math.Floor(origin.X);
+            int directionY = (int)Math.Floor(origin.Y);
+            int directionZ = (int)Math.Floor(origin.Z);
+
+            var blockpos = new BlockCoordinates(directionX, directionY, directionZ);
+            Block block = this.GetBlock(blockpos);
+
+            /*bool collides = true;
+
+            if (stopOnLiquid)
+            {
+                if (block is Stationary)
+                {
+                    collides = true;
+                } else if (block is Flowing || block is Fire)
+                {
+                    collides = false;
+                }
+            } else
+            {
+                if (block is Stationary || block is Flowing || block is Fire)
+                {
+                    collides = false;
+                }
+            }*/
+
+            bool collides = stopOnLiquid ? !(block is Flowing || block is Fire) : !(block is Stationary || block is Flowing || block is Fire);
+            if ((!ignoreBlockWithoutBoundingBox || block.GetBoundingBox() != null) && collides)
+            {
+                RayTraceResult raytraceresult = iblockstate.collisionRayTrace(this, blockpos, vec31, vec32);
+
+                if (raytraceresult != null)
+                {
+                    return raytraceresult;
+                }
+            }
+
+            RayTraceResult raytraceresult2 = null;
+            int k1 = 200;
+
+            while (k1-- >= 0)
+            {
+                if (Double.isNaN(vec31.xCoord) || Double.isNaN(vec31.yCoord)
+                        || Double.isNaN(vec31.zCoord))
+                {
+                    return null;
+                }
+
+                if (l == i && i1 == j && j1 == k)
+                {
+                    return returnLastUncollidableBlock
+                            ? raytraceresult2
+                            : null;
+                }
+
+                boolean flag2 = true;
+                boolean flag = true;
+                boolean flag1 = true;
+                double d0 = 999.0D;
+                double d1 = 999.0D;
+                double d2 = 999.0D;
+
+                if (i > l)
+                {
+                    d0 = (double)l + 1.0D;
+                }
+                else if (i < l)
+                {
+                    d0 = (double)l + 0.0D;
+                }
+                else
+                {
+                    flag2 = false;
+                }
+
+                if (j > i1)
+                {
+                    d1 = (double)i1 + 1.0D;
+                }
+                else if (j < i1)
+                {
+                    d1 = (double)i1 + 0.0D;
+                }
+                else
+                {
+                    flag = false;
+                }
+
+                if (k > j1)
+                {
+                    d2 = (double)j1 + 1.0D;
+                }
+                else if (k < j1)
+                {
+                    d2 = (double)j1 + 0.0D;
+                }
+                else
+                {
+                    flag1 = false;
+                }
+
+                double d3 = 999.0D;
+                double d4 = 999.0D;
+                double d5 = 999.0D;
+                double d6 = vec32.xCoord - vec31.xCoord;
+                double d7 = vec32.yCoord - vec31.yCoord;
+                double d8 = vec32.zCoord - vec31.zCoord;
+
+                if (flag2)
+                {
+                    d3 = (d0 - vec31.xCoord) / d6;
+                }
+
+                if (flag)
+                {
+                    d4 = (d1 - vec31.yCoord) / d7;
+                }
+
+                if (flag1)
+                {
+                    d5 = (d2 - vec31.zCoord) / d8;
+                }
+
+                if (d3 == -0.0D)
+                {
+                    d3 = -1.0E-4D;
+                }
+
+                if (d4 == -0.0D)
+                {
+                    d4 = -1.0E-4D;
+                }
+
+                if (d5 == -0.0D)
+                {
+                    d5 = -1.0E-4D;
+                }
+
+                EnumFacing enumfacing;
+
+                if (d3 < d4 && d3 < d5)
+                {
+                    enumfacing = i > l ? EnumFacing.WEST : EnumFacing.EAST;
+                    vec31 = new Vec3d(d0, vec31.yCoord + d7 * d3,
+                            vec31.zCoord + d8 * d3);
+                }
+                else if (d4 < d5)
+                {
+                    enumfacing = j > i1 ? EnumFacing.DOWN : EnumFacing.UP;
+                    vec31 = new Vec3d(vec31.xCoord + d6 * d4, d1,
+                            vec31.zCoord + d8 * d4);
+                }
+                else
+                {
+                    enumfacing = k > j1
+                            ? EnumFacing.NORTH
+                            : EnumFacing.SOUTH;
+                    vec31 = new Vec3d(vec31.xCoord + d6 * d5,
+                            vec31.yCoord + d7 * d5, d2);
+                }
+
+                l = MathHelper.floor_double(vec31.xCoord)
+                        - (enumfacing == EnumFacing.EAST ? 1 : 0);
+                i1 = MathHelper.floor_double(vec31.yCoord)
+                        - (enumfacing == EnumFacing.UP ? 1 : 0);
+                j1 = MathHelper.floor_double(vec31.zCoord)
+                        - (enumfacing == EnumFacing.SOUTH ? 1 : 0);
+                blockpos = new BlockPos(l, i1, j1);
+                IBlockState iblockstate1 = this.getBlockState(blockpos);
+                Block block1 = iblockstate1.getBlock();
+
+                if (!ignoreBlockWithoutBoundingBox
+                        || iblockstate1.getMaterial() == Material.PORTAL
+                        || iblockstate1.getCollisionBoundingBox(this,
+                                blockpos) != Block.NULL_AABB)
+                {
+                    if (block1.canCollideCheck(iblockstate1,
+                            stopOnLiquid))
+                    {
+                        RayTraceResult raytraceresult1 = iblockstate1
+                                .collisionRayTrace(this, blockpos, vec31,
+                                        vec32);
+
+                        if (raytraceresult1 != null)
+                        {
+                            return raytraceresult1;
+                        }
+                    }
+                    else
+                    {
+                        raytraceresult2 = new RayTraceResult(
+                                RayTraceResult.Type.MISS, vec31, enumfacing,
+                                blockpos);
+                    }
+                }
+            }
+
+            return returnLastUncollidableBlock ? raytraceresult2 : null;
+        }
+        // END NMS CODE
+        */
+#endif
+
+        public ChunkColumn[] GetLoadedChunks()
 		{
 			var provider = _worldProvider as AnvilWorldProvider;
 			if (provider != null)
